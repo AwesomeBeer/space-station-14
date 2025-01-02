@@ -4,7 +4,6 @@ using Content.Server.Backmen.GameTicking.Rules.Components;
 using Content.Server.Chat.Managers;
 using Content.Server.GameTicking;
 using Content.Server.GameTicking.Rules;
-using Content.Server.GameTicking.Rules.Components;
 using Content.Server.Mind;
 using Content.Server.NPC.Systems;
 using Content.Server.Objectives;
@@ -18,6 +17,8 @@ using Content.Server.Store.Components;
 using Content.Shared.Backmen.Abilities.Psionics;
 using Content.Shared.Backmen.CCVar;
 using Content.Shared.Backmen.Flesh;
+using Content.Shared.GameTicking;
+using Content.Shared.GameTicking.Components;
 using Content.Shared.Humanoid;
 using Content.Shared.Mind;
 using Content.Shared.NPC.Systems;
@@ -27,6 +28,7 @@ using Content.Shared.Preferences;
 using Content.Shared.Radio;
 using Content.Shared.Roles;
 using Content.Shared.Roles.Jobs;
+using Content.Shared.Store.Components;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Systems;
 using Robust.Shared.Configuration;
@@ -52,6 +54,7 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
     [Dependency] private readonly RoleSystem _roleSystem = default!;
     [Dependency] private readonly SharedJobSystem _jobs = default!;
     [Dependency] private readonly ObjectivesSystem _objectivesSystem = default!;
+    [Dependency] private readonly IComponentFactory _componentFactory = default!;
 
     private ISawmill _sawmill = default!;
 
@@ -64,13 +67,12 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
 
         _sawmill = Logger.GetSawmill("preset");
 
-        SubscribeLocalEvent<RoundStartAttemptEvent>(OnStartAttempt);
         SubscribeLocalEvent<RulePlayerJobsAssignedEvent>(OnPlayersSpawned);
         SubscribeLocalEvent<PlayerSpawnCompleteEvent>(HandleLatejoin);
-        SubscribeLocalEvent<RoundEndTextAppendEvent>(OnRoundEndText);
         SubscribeLocalEvent<FleshHeartSystem.FleshHeartFinalEvent>(OnFleshHeartFinal);
         SubscribeLocalEvent<FleshCultistRoleComponent, GetBriefingEvent>(OnGetBriefing);
     }
+
 
     private void OnGetBriefing(Entity<FleshCultistRoleComponent> ent, ref GetBriefingEvent args)
     {
@@ -125,31 +127,6 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
                 fleshCult.WinType = FleshCultRuleComponent.WinTypes.FleshHeartFinal;
                 _roundEndSystem.EndRound();
                 return;
-            }
-        }
-    }
-
-    private void OnStartAttempt(RoundStartAttemptEvent ev)
-    {
-        var query = EntityQueryEnumerator<FleshCultRuleComponent, GameRuleComponent>();
-        while (query.MoveNext(out var uid, out var fleshCult, out var gameRule))
-        {
-            if (!GameTicker.IsGameRuleAdded(uid, gameRule))
-                continue;
-
-            var minPlayers = _cfg.GetCVar(CCVars.FleshCultMinPlayers);
-            if (!ev.Forced && ev.Players.Length < minPlayers)
-            {
-                _chatManager.DispatchServerAnnouncement(Loc.GetString("flesh-cult-not-enough-ready-players",
-                    ("readyPlayersCount", ev.Players.Length), ("minimumPlayers", minPlayers)));
-                ev.Cancel();
-                continue;
-            }
-
-            if (ev.Players.Length == 0)
-            {
-                _chatManager.DispatchServerAnnouncement(Loc.GetString("flesh-cult-no-one-ready"));
-                ev.Cancel();
             }
         }
     }
@@ -262,10 +239,12 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
 
         var prefList = new List<ICommonSession>();
 
+        _prototypeManager.Index(component.FleshCultistLeaderMindRolePrototypeId)
+            .TryGetComponent<MindRoleComponent>(out var roleComponent, _componentFactory);
         foreach (var player in list)
         {
             var profile = candidates[player];
-            if (profile.AntagPreferences.Contains(component.FleshCultistPrototypeId))
+            if (profile.AntagPreferences.Contains(roleComponent!.AntagPrototype!.Value))
             {
                 prefList.Add(player);
             }
@@ -317,11 +296,14 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
         }
 
         var prefList = new List<ICommonSession>();
+        _prototypeManager.Index(component.FleshCultistLeaderMindRolePrototypeId)
+            .TryGetComponent<MindRoleComponent>(out var roleComponent, _componentFactory);
 
         foreach (var player in list)
         {
             var profile = candidates[player];
-            if (profile.AntagPreferences.Contains(component.FleshCultistLeaderPrototypeId))
+
+            if (profile.AntagPreferences.Contains(roleComponent!.AntagPrototype!.Value))
             {
                 prefList.Add(player);
             }
@@ -365,7 +347,7 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
     [ValidatePrototypeId<EntityPrototype>]
     public const string FleshCultistSurvivalObjective = "FleshCultistSurvivalObjective";
 
-    private bool BaseMakeCultist(ICommonSession traitor, FleshCultRuleComponent fleshCultRule, EntityUid mindId, MindComponent mind, string role)
+    private bool BaseMakeCultist(ICommonSession traitor, FleshCultRuleComponent fleshCultRule, EntityUid mindId, MindComponent mind, EntProtoId role)
     {
         if (mind.OwnedEntity is not { } entity)
         {
@@ -382,10 +364,7 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
 
         if (!HasComp<FleshCultistRoleComponent>(mindId))
         {
-            _roleSystem.MindAddRole(mindId, new FleshCultistRoleComponent
-            {
-                PrototypeId = role
-            });
+            _roleSystem.MindAddRole(mindId, role.Id);
         }
 
         if (fleshCultRule.Cultists.All(z => z.mindId != mindId))
@@ -442,7 +421,7 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
             return false;
         }
 
-        return BaseMakeCultist(traitor, fleshCultRule, mindId.Value, mind, fleshCultRule.FleshCultistPrototypeId);
+        return BaseMakeCultist(traitor, fleshCultRule, mindId.Value, mind, fleshCultRule.FleshCultistMindRolePrototypeId);
     }
 
     public bool MakeCultistLeader(ICommonSession traitor)
@@ -462,7 +441,7 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
             return false;
         }
 
-        return BaseMakeCultist(traitor, fleshCultRule, mindId.Value, mind, fleshCultRule.FleshCultistLeaderPrototypeId);
+        return BaseMakeCultist(traitor, fleshCultRule, mindId.Value, mind, fleshCultRule.FleshCultistLeaderMindRolePrototypeId);
     }
 
     private void HandleLatejoin(PlayerSpawnCompleteEvent ev)
@@ -476,7 +455,11 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
                 return;
             if (!ev.LateJoin)
                 return;
-            if (!ev.Profile.AntagPreferences.Contains(fleshCult.FleshCultistPrototypeId))
+
+
+            _prototypeManager.Index(fleshCult.FleshCultistLeaderMindRolePrototypeId)
+                .TryGetComponent<MindRoleComponent>(out var roleComponent, _componentFactory);
+            if (!ev.Profile.AntagPreferences.Contains(roleComponent!.AntagPrototype!.Value))
                 return;
 
 
@@ -520,124 +503,126 @@ public sealed class FleshCultRuleSystem : GameRuleSystem<FleshCultRuleComponent>
         }
     }
 
-    private void OnRoundEndText(RoundEndTextAppendEvent ev)
+    protected override void AppendRoundEndText(EntityUid uid, FleshCultRuleComponent fleshCult, GameRuleComponent gameRule,
+        ref RoundEndTextAppendEvent ev)
     {
-        var query = EntityQueryEnumerator<FleshCultRuleComponent, GameRuleComponent>();
-        while (query.MoveNext(out var uid, out var fleshCult, out var gameRule))
+
+        var result = Loc.GetString("flesh-cult-round-end-result", ("cultistsCount",
+            fleshCult.Cultists.Count));
+
+        if (fleshCult.WinType is FleshCultRuleComponent.WinTypes.FleshHeartFinal)
         {
-            if (!GameTicker.IsGameRuleAdded(uid, gameRule))
-                continue;
+            result += "\n" + Loc.GetString("flesh-cult-round-end-flesh-heart-succes");
+        }
+        else
+        {
+            result += "\n" + Loc.GetString("flesh-cult-round-end-flesh-heart-fail");
+        }
 
-            var result = Loc.GetString("flesh-cult-round-end-result", ("cultistsCount",
-                fleshCult.Cultists.Count));
+        // result += "\n" + Loc.GetString("traitor-round-end-codewords", ("codewords", string.Join(", ", Codewords))) + "\n";
 
-            if (fleshCult.WinType is FleshCultRuleComponent.WinTypes.FleshHeartFinal)
+        foreach (var (mindId, mind) in fleshCult.Cultists)
+        {
+            var name = mind.CharacterName;
+            _mindSystem.TryGetSession(mind, out var session);
+            var username = session?.Name;
+
+            var objectives = mind.AllObjectives.ToArray();
+
+            var leader = "";
+            if (_roleSystem.MindHasRole<FleshCultistRoleComponent>(mindId, out var cultist) &&
+                Prototype(cultist.Value)?.ID == fleshCult.FleshCultistLeaderMindRolePrototypeId.Id)
             {
-                result += "\n" + Loc.GetString("flesh-cult-round-end-flesh-heart-succes");
+                leader = "-leader";
             }
-            else
+
+            if (objectives.Length == 0)
             {
-                result += "\n" + Loc.GetString("flesh-cult-round-end-flesh-heart-fail");
-            }
-
-            // result += "\n" + Loc.GetString("traitor-round-end-codewords", ("codewords", string.Join(", ", Codewords))) + "\n";
-
-            foreach (var (mindId, mind) in fleshCult.Cultists)
-            {
-                var name = mind.CharacterName;
-                _mindSystem.TryGetSession(mind, out var session);
-                var username = session?.Name;
-
-                var objectives = mind.AllObjectives.ToArray();
-
-                var leader = "";
-                if (TryComp<FleshCultistRoleComponent>(mindId, out var cultist) && cultist.PrototypeId == fleshCult.FleshCultistLeaderPrototypeId)
-                {
-                    leader = "-leader";
-                }
-
-                if (objectives.Length == 0)
-                {
-                    if (username != null)
-                    {
-                        if (name == null)
-                        {
-                            result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}",
-                                ("user", username));
-                        }
-                        else
-                        {
-                            result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}-named",
-                                ("user", username), ("name", name));
-                        }
-                    }
-                    else if (name != null)
-                        result += "\n" + Loc.GetString($"flesh-cult-was-a-cultist{leader}-named", ("name", name));
-
-                    continue;
-                }
-
                 if (username != null)
                 {
                     if (name == null)
                     {
-                        result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}-with-objectives",
+                        result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}",
                             ("user", username));
                     }
                     else
                     {
-                        result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}-with-objectives-named",
+                        result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}-named",
                             ("user", username), ("name", name));
                     }
                 }
                 else if (name != null)
+                    result += "\n" + Loc.GetString($"flesh-cult-was-a-cultist{leader}-named", ("name", name));
+
+                continue;
+            }
+
+            if (username != null)
+            {
+                if (name == null)
                 {
-                    result += "\n" + Loc.GetString($"flesh-cult-was-a-cultist{leader}-with-objectives-named",
-                        ("name", name));
+                    result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}-with-objectives",
+                        ("user", username));
                 }
-
-                foreach (var objectiveGroup in objectives.GroupBy(o => Comp<ObjectiveComponent>(o).Issuer))
+                else
                 {
-                    if (objectiveGroup.Key == "Космический банк")
-                    {
-                        continue;
-                    }
-
-                    result += "\n" + Loc.GetString($"preset-flesh-cult-objective-issuer-{objectiveGroup.Key}");
-
-                    foreach (var objective in objectiveGroup)
-                    {
-                        var info = _objectivesSystem.GetInfo(objective, mindId);
-                        if (info == null)
-                            continue;
-
-                        var objectiveTitle = info.Value.Title;
-                        var progress = info.Value.Progress;
-                        if (progress > 0.99f)
-                        {
-                            result += "\n- " + Loc.GetString(
-                                "flesh-cult-objective-condition-success",
-                                ("condition", objectiveTitle),
-                                ("markupColor", "green")
-                            );
-                        }
-                        else
-                        {
-                            result += "\n- " + Loc.GetString(
-                                "flesh-cult-objective-condition-fail",
-                                ("condition", objectiveTitle),
-                                ("progress", (int) (progress * 100)),
-                                ("markupColor", "red")
-                            );
-                        }
-
-                    }
+                    result += "\n" + Loc.GetString($"flesh-cult-user-was-a-cultist{leader}-with-objectives-named",
+                        ("user", username), ("name", name));
                 }
             }
-            result += "\n" +
-                      "\n";
+            else if (name != null)
+            {
+                result += "\n" + Loc.GetString($"flesh-cult-was-a-cultist{leader}-with-objectives-named",
+                    ("name", name));
+            }
 
-            ev.AddLine(result);
+            foreach (var objectiveGroup in objectives.Select(x=>(Entity<ObjectiveComponent>)(x, Comp<ObjectiveComponent>(x)))
+                         .GroupBy(o => o.Comp.LocIssuer))
+            {
+                var hasTitle = false;
+
+                foreach (var objective in objectiveGroup)
+                {
+                    if(objective.Comp.HideFromTotal)
+                        continue;
+
+                    var info = _objectivesSystem.GetInfo(objective, mindId);
+                    if (info == null)
+                        continue;
+
+                    if (!hasTitle)
+                    {
+                        result += "\n" + Loc.GetString($"preset-flesh-cult-objective-issuer-{objectiveGroup.Key}");
+                        hasTitle = true;
+                    }
+
+
+                    var objectiveTitle = info.Value.Title;
+                    var progress = info.Value.Progress;
+                    if (progress > 0.99f)
+                    {
+                        result += "\n- " + Loc.GetString(
+                            "flesh-cult-objective-condition-success",
+                            ("condition", objectiveTitle),
+                            ("markupColor", "green")
+                        );
+                    }
+                    else
+                    {
+                        result += "\n- " + Loc.GetString(
+                            "flesh-cult-objective-condition-fail",
+                            ("condition", objectiveTitle),
+                            ("progress", (int) (progress * 100)),
+                            ("markupColor", "red")
+                        );
+                    }
+
+                }
+            }
         }
+        result += "\n" +
+                  "\n";
+
+        ev.AddLine(result);
     }
 }

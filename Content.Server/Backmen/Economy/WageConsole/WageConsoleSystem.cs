@@ -26,7 +26,8 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
     {
         base.Initialize();
         SubscribeLocalEvent<WageConsoleComponent,ActivatableUIOpenAttemptEvent>(OnTryOpenUi);
-        Subs.BuiEvents<WageConsoleComponent>(WageUiKey.Key, subs =>
+        Subs.BuiEvents<WageConsoleComponent>(WageUiKey.Key,
+            subs =>
         {
             subs.Event<BoundUIOpenedEvent>(UpdateUserInterface);
             subs.Event<OpenWageRowMsg>(OnOpenWageRow);
@@ -53,16 +54,19 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
 
     private void OnBonusMsg(Entity<WageConsoleComponent> ent, ref BonusWageRowMsg args)
     {
-        if (args.Session.AttachedEntity is null) { return; }
-        if (!_whitelist.IsInWhitelist(args.Session))
+        if (!TryComp<ActorComponent>(args.Actor, out var actorComponent))
         {
-            _popup.PopupCursor(Loc.GetString("reinforcement-insufficient-access"), args.Session.AttachedEntity.Value, PopupType.Medium);
+            return;
+        }
+        if (!_whitelist.IsInWhitelist(actorComponent.PlayerSession))
+        {
+            _popup.PopupCursor(Loc.GetString("reinforcement-insufficient-access"), args.Actor, PopupType.Medium);
             return;
         }
 
-        if (!_access.IsAllowed(args.Session.AttachedEntity.Value, ent))
+        if (!_access.IsAllowed(args.Actor, ent))
         {
-            _popup.PopupCursor(Loc.GetString("wageconsole-insufficient-access"), args.Session, PopupType.Medium);
+            _popup.PopupCursor(Loc.GetString("wageconsole-insufficient-access"), args.Actor, PopupType.Medium);
             return;
         }
 
@@ -75,7 +79,7 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
         }
 
         _adminLogger.Add(LogType.Transactions, LogImpact.Extreme,
-            $"wage, player {ToPrettyString(args.Session.AttachedEntity.GetValueOrDefault()):player} use bonus on accountId {wagePayout.ToAccountNumber.Comp.AccountNumber} with name {wagePayout.ToAccountNumber:entity} and add {args.Wage}");
+            $"wage, player {ToPrettyString(args.Actor):player} use bonus on accountId {wagePayout.ToAccountNumber.Comp.AccountNumber} with name {wagePayout.ToAccountNumber:entity} and add {args.Wage}");
 
         QueueLocalEvent(new WagePaydayEvent()
         {
@@ -95,7 +99,7 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
             return;
         }
 
-        _ui.TrySetUiState(ent, WageUiKey.Key, new OpenBonusWageConsoleUi
+        _ui.SetUiState(ent.Owner, WageUiKey.Key, new OpenBonusWageConsoleUi
         {
             Row = new UpdateWageRow
             {
@@ -113,16 +117,19 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
 
     private void OnEditWageRow(Entity<WageConsoleComponent> ent, ref SaveEditedWageRowMsg args)
     {
-        if (args.Session.AttachedEntity is null) { return; }
-        if (!_whitelist.IsInWhitelist(args.Session))
+        if (!TryComp<ActorComponent>(args.Actor, out var actorComponent))
         {
-            _popup.PopupCursor(Loc.GetString("reinforcement-insufficient-access"), args.Session.AttachedEntity.Value, PopupType.Medium);
+            return;
+        }
+        if (!_whitelist.IsInWhitelist(actorComponent.PlayerSession))
+        {
+            _popup.PopupCursor(Loc.GetString("reinforcement-insufficient-access"), args.Actor, PopupType.Medium);
             return;
         }
 
-        if (!_access.IsAllowed(args.Session.AttachedEntity.Value, ent))
+        if (!_access.IsAllowed(args.Actor, ent))
         {
-            _popup.PopupCursor(Loc.GetString("wageconsole-insufficient-access"), args.Session, PopupType.Medium);
+            _popup.PopupCursor(Loc.GetString("wageconsole-insufficient-access"), args.Actor, PopupType.Medium);
             return;
         }
 
@@ -135,7 +142,7 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
         }
 
         _adminLogger.Add(LogType.Transactions, LogImpact.Extreme,
-            $"wage, player {ToPrettyString(args.Session.AttachedEntity.GetValueOrDefault()):player} use edit on accountId {wagePayout.ToAccountNumber.Comp.AccountNumber} with name {wagePayout.ToAccountNumber.Owner:entity} and set payout to {args.Wage}");
+            $"wage, player {ToPrettyString(args.Actor):player} use edit on accountId {wagePayout.ToAccountNumber.Comp.AccountNumber} with name {wagePayout.ToAccountNumber.Owner:entity} and set payout to {args.Wage}");
 
         wagePayout.PayoutAmount = args.Wage;
         UpdateUserInterface(ent);
@@ -155,7 +162,7 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
            !TryComp<MetaDataComponent>(wagePayout.ToAccountNumber, out var mdTp))
             return;
 
-        _ui.TrySetUiState(ent, WageUiKey.Key, new OpenEditWageConsoleUi
+        _ui.SetUiState(ent.Owner, WageUiKey.Key, new OpenEditWageConsoleUi
         {
             Row = new UpdateWageRow
             {
@@ -199,6 +206,6 @@ public sealed class WageConsoleSystem : SharedWageConsoleSystem
             });
         }
 
-        _ui.TrySetUiState(ent, WageUiKey.Key, msg);
+        _ui.SetUiState(ent.Owner, WageUiKey.Key, msg);
     }
 }

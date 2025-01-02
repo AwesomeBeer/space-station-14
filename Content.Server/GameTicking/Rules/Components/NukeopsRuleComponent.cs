@@ -1,27 +1,16 @@
-using Content.Server.Maps;
 using Content.Server.RoundEnd;
-using Content.Server.StationEvents.Events;
 using Content.Shared.Dataset;
 using Content.Shared.NPC.Prototypes;
 using Content.Shared.Roles;
-using Robust.Shared.Map;
+using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom;
 
 namespace Content.Server.GameTicking.Rules.Components;
 
-[RegisterComponent, Access(typeof(NukeopsRuleSystem), typeof(LoneOpsSpawnRule))]
+[RegisterComponent, Access(typeof(NukeopsRuleSystem))]
 public sealed partial class NukeopsRuleComponent : Component
 {
-    /// <summary>
-    /// This INCLUDES the operatives. So a value of 3 is satisfied by 2 players & 1 operative
-    /// </summary>
-    [DataField]
-    public int PlayersPerOperative = 10;
-
-    [DataField]
-    public int MaxOps = 7;
-
     /// <summary>
     /// What will happen if all of the nuclear operatives will die. Used by LoneOpsSpawn event.
     /// </summary>
@@ -53,12 +42,6 @@ public sealed partial class NukeopsRuleComponent : Component
     public TimeSpan EvacShuttleTime = TimeSpan.FromMinutes(3);
 
     /// <summary>
-    /// Whether or not to spawn the nuclear operative outpost. Used by LoneOpsSpawn event.
-    /// </summary>
-    [DataField]
-    public bool SpawnOutpost = true;
-
-    /// <summary>
     /// Whether or not nukie left their outpost
     /// </summary>
     [DataField]
@@ -80,7 +63,7 @@ public sealed partial class NukeopsRuleComponent : Component
     ///     This amount of TC will be given to each nukie
     /// </summary>
     [DataField]
-    public int WarTCAmountPerNukie = 60;
+    public int WarTcAmountPerNukie = 40;
 
     /// <summary>
     ///     Delay between war declaration and nuke ops arrival on station map. Gives crew time to prepare
@@ -89,22 +72,16 @@ public sealed partial class NukeopsRuleComponent : Component
     public TimeSpan WarNukieArriveDelay = TimeSpan.FromMinutes(15);
 
     /// <summary>
+    ///     Time crew can't call emergency shuttle after war declaration.
+    /// </summary>
+    [DataField]
+    public TimeSpan WarEvacShuttleDisabled = TimeSpan.FromMinutes(25);
+
+    /// <summary>
     ///     Minimal operatives count for war declaration
     /// </summary>
     [DataField]
     public int WarDeclarationMinOps = 4;
-
-    [DataField]
-    public EntProtoId SpawnPointProto = "SpawnPointNukies";
-
-    [DataField]
-    public EntProtoId GhostSpawnPointProto = "SpawnPointGhostNukeOperative";
-
-    [DataField]
-    public string OperationName = "Test Operation";
-
-    [DataField]
-    public ProtoId<GameMapPrototype> OutpostMapPrototype = "NukieOutpost";
 
     [DataField]
     public WinType WinType = WinType.Neutral;
@@ -112,62 +89,17 @@ public sealed partial class NukeopsRuleComponent : Component
     [DataField]
     public List<WinCondition> WinConditions = new ();
 
-    // TODO full game save
-    // TODO: use components, don't just cache entity UIDs
-    // There have been (and probably still are) bugs where these refer to deleted entities from old rounds.
-    // Whenever this gets fixed, update NukiesTest.
-    public EntityUid? NukieOutpost;
-    public EntityUid? NukieShuttle;
+    [DataField]
     public EntityUid? TargetStation;
-    public MapId? NukiePlanet;
+
+    [DataField]
+    public ProtoId<NpcFactionPrototype> Faction = "Syndicate";
 
     /// <summary>
-    ///     Data to be used in <see cref="OnMindAdded"/> for an operative once the Mind has been added.
+    ///     Path to antagonist alert sound.
     /// </summary>
     [DataField]
-    public Dictionary<EntityUid, string> OperativeMindPendingData = new();
-
-    [DataField(required: true)]
-    public ProtoId<NpcFactionPrototype> Faction;
-
-    [DataField]
-    public NukeopSpawnPreset CommanderSpawnDetails = new() { AntagRoleProto = "NukeopsCommander", GearProto = "SyndicateCommanderGearFull", NamePrefix = "nukeops-role-commander", NameList = "SyndicateNamesElite" };
-
-    [DataField]
-    public NukeopSpawnPreset AgentSpawnDetails = new() { AntagRoleProto = "NukeopsMedic", GearProto = "SyndicateOperativeMedicFull", NamePrefix = "nukeops-role-agent", NameList = "SyndicateNamesNormal" };
-
-    [DataField]
-    public NukeopSpawnPreset OperativeSpawnDetails = new();
-}
-
-/// <summary>
-/// Stores the presets for each operative type
-/// Ie Commander, Agent and Operative
-/// </summary>
-[DataDefinition, Serializable]
-public sealed partial class NukeopSpawnPreset
-{
-
-    [DataField]
-    public ProtoId<AntagPrototype> AntagRoleProto = "Nukeops";
-
-    /// <summary>
-    /// The equipment set this operative will be given when spawned
-    /// </summary>
-    [DataField]
-    public ProtoId<StartingGearPrototype> GearProto = "SyndicateOperativeGearFull";
-
-    /// <summary>
-    /// The name prefix, ie "Agent"
-    /// </summary>
-    [DataField]
-    public LocId NamePrefix = "nukeops-role-operator";
-
-    /// <summary>
-    /// The entity name suffix will be chosen from this list randomly
-    /// </summary>
-    [DataField]
-    public ProtoId<DatasetPrototype> NameList = "SyndicateNamesNormal";
+    public SoundSpecifier GreetSoundNotification = new SoundPathSpecifier("/Audio/Ambience/Antag/nukeops_start.ogg");
 }
 
 public enum WinType : byte

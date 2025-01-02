@@ -14,6 +14,7 @@ using Content.Shared.Preferences.Loadouts;
 using Content.Shared.Roles;
 using Content.Shared.StationRecords;
 using Robust.Shared.Player;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Toolshed;
 using Robust.Shared.Toolshed.Errors;
 using Robust.Shared.Toolshed.Syntax;
@@ -22,10 +23,11 @@ using Robust.Shared.Toolshed.TypeParsers;
 namespace Content.Server.Backmen.Administration.Commands.Toolshed;
 
 [ToolshedCommand, AdminCommand(AdminFlags.Fun)]
-public sealed class StationRecordCommand  : ToolshedCommand
+public sealed class StationRecordCommand : ToolshedCommand
 {
     private StationRecordsSystem? _recordsSystem;
     private InventorySystem? _inventory;
+
     [CommandImplementation("adduser")]
     public EntityUid Add(
         [CommandInvocationContext] IInvocationContext ctx,
@@ -34,7 +36,8 @@ public sealed class StationRecordCommand  : ToolshedCommand
         [CommandArgument] Prototype<JobPrototype> job)
     {
         var player = playerRef.Evaluate(ctx);
-        if (player is null || player.AttachedEntity is null || !TryComp<StationRecordsComponent>(input, out var recordsComponent))
+        if (player is null || player.AttachedEntity is null ||
+            !TryComp<StationRecordsComponent>(input, out var recordsComponent))
         {
             ctx.ReportError(new NotForServerConsoleError());
             return input;
@@ -42,10 +45,10 @@ public sealed class StationRecordCommand  : ToolshedCommand
 
         var playerUid = player.AttachedEntity.Value;
 
-        if(
+        if (
             !TryComp<HumanoidAppearanceComponent>(playerUid, out var humanoidAppearanceComponent) ||
             !TryComp<MetaDataComponent>(playerUid, out var metaDataComponent)
-            )
+        )
             return input;
 
         _recordsSystem ??= GetSys<StationRecordsSystem>();
@@ -53,16 +56,21 @@ public sealed class StationRecordCommand  : ToolshedCommand
 
         foreach (var item in _inventory.GetHandOrInventoryEntities(playerUid))
         {
-            if(!TryComp(item, out PdaComponent? pda) || !TryComp<IdCardComponent>(pda.ContainedId, out var id))
+            if (!TryComp(item, out PdaComponent? pda) || !TryComp<IdCardComponent>(pda.ContainedId, out var id))
                 continue;
 
             TryComp<DnaComponent>(playerUid, out var dnaComponent);
             TryComp<FingerprintComponent>(playerUid, out var fingerprintComponent);
 
-            _recordsSystem.CreateGeneralRecord(input, pda.ContainedId,
-                metaDataComponent.EntityName, humanoidAppearanceComponent.Age,
-                humanoidAppearanceComponent.Species, humanoidAppearanceComponent.Gender,
-                job.Id,dnaComponent?.DNA, fingerprintComponent?.Fingerprint,
+            _recordsSystem.CreateGeneralRecord(input,
+                pda.ContainedId,
+                metaDataComponent.EntityName,
+                humanoidAppearanceComponent.Age,
+                humanoidAppearanceComponent.Species,
+                humanoidAppearanceComponent.Gender,
+                job.Id,
+                dnaComponent?.DNA,
+                fingerprintComponent?.Fingerprint,
                 new HumanoidCharacterProfile(
                     metaDataComponent.EntityName,
                     "",
@@ -73,13 +81,13 @@ public sealed class StationRecordCommand  : ToolshedCommand
                     humanoidAppearanceComponent.Gender,
                     new HumanoidCharacterAppearance(),
                     SpawnPriorityPreference.None,
-                    new Dictionary<string, JobPriority>
+                    new Dictionary<ProtoId<JobPrototype>, JobPriority>
                     {
-                        {SharedGameTicker.FallbackOverflowJob, JobPriority.High}
+                        { SharedGameTicker.FallbackOverflowJob, JobPriority.High }
                     },
                     PreferenceUnavailableMode.SpawnAsOverflow,
-                    new List<string>(),
-                    new List<string>(),
+                    [],
+                    [],
                     new Dictionary<string, RoleLoadout>()
                 ),
                 recordsComponent
@@ -88,6 +96,7 @@ public sealed class StationRecordCommand  : ToolshedCommand
 
         return input;
     }
+
     [CommandImplementation("adduser")]
     public IEnumerable<EntityUid> Add(
         [CommandInvocationContext] IInvocationContext ctx,
@@ -123,7 +132,7 @@ public sealed class StationRecordCommand  : ToolshedCommand
 
         // when adding a record that already exists use the old one
         // this happens when respawning as the same character
-        if (_recordsSystem.GetRecordByName(input, metaDataComponent.EntityName, recordsComponent) is {} id)
+        if (_recordsSystem.GetRecordByName(input, metaDataComponent.EntityName, recordsComponent) is { } id)
         {
             _recordsSystem.RemoveRecord(new StationRecordKey(id, input), recordsComponent);
         }
@@ -153,6 +162,7 @@ public sealed class StationRecordCommand  : ToolshedCommand
 
         return input;
     }
+
     [CommandImplementation("remuser")]
     public IEnumerable<EntityUid> Rem(
         [CommandInvocationContext] IInvocationContext ctx,

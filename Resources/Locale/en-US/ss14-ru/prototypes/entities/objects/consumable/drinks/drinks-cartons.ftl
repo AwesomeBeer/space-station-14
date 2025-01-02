@@ -1,4 +1,5 @@
 ent-DrinkCartonBaseFull = { ent-DrinkBase }
+    .suffix = Full
     .desc = { ent-DrinkBase.desc }
 ent-DrinkCartonBaseLargeFull = { ent-DrinkCartonBaseFull }
     .desc = { ent-DrinkCartonBaseFull.desc }
@@ -20,3 +21,5 @@ ent-DrinkSoyMilkCarton = soy milk
     .desc = White and nutritious soy goodness!
 ent-DrinkOatMilkCarton = oat milk
     .desc = It's oat milk. Tan and nutritious goodness!
+ent-DrinkJuiceLemonCarton = lemon juice
+    .desc = First it's sour, then it's still sour.

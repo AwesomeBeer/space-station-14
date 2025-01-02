@@ -7,6 +7,9 @@ using Content.Shared.Interaction.Events;
 using Content.Shared.Inventory.Events;
 using Content.Shared.Mobs.Components;
 using Content.Shared.Mobs.Systems;
+using Content.Shared.Movement.Components;
+using Content.Shared.Movement.Events;
+using Content.Shared.Movement.Systems;
 using Content.Shared.Verbs;
 using Robust.Shared.Containers;
 using Robust.Shared.Serialization;
@@ -17,6 +20,7 @@ public abstract class SharedBlobPodSystem : EntitySystem
 {
     [Dependency] private readonly MobStateSystem _mobs = default!;
 
+
     private EntityQuery<HumanoidAppearanceComponent> _query;
 
     public override void Initialize()
@@ -25,8 +29,6 @@ public abstract class SharedBlobPodSystem : EntitySystem
 
         SubscribeLocalEvent<BlobPodComponent, GetVerbsEvent<InnateVerb>>(AddDrainVerb);
         SubscribeLocalEvent<BlobPodComponent, BeingUnequippedAttemptEvent>(OnUnequipAttempt);
-
-
         SubscribeLocalEvent<BlobPodComponent, CanDropTargetEvent>(OnCanDragDropOn);
         SubscribeLocalEvent<BlobPodComponent, DragDropTargetEvent>(OnBlobPodDragDrop);
 

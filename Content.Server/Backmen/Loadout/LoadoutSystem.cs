@@ -1,8 +1,10 @@
 ﻿using Content.Corvax.Interfaces.Server;
+using Content.Corvax.Interfaces.Shared;
 using Content.Server.GameTicking;
 using Content.Server.Hands.Systems;
 using Content.Server.Storage.EntitySystems;
 using Content.Shared.Clothing.Components;
+using Content.Shared.GameTicking;
 using Content.Shared.Inventory;
 using Robust.Shared.Prototypes;
 
@@ -16,7 +18,7 @@ public sealed class LoadoutSystem : EntitySystem
     [Dependency] private readonly InventorySystem _inventorySystem = default!;
     [Dependency] private readonly HandsSystem _handsSystem = default!;
     [Dependency] private readonly StorageSystem _storageSystem = default!;
-    [Dependency] private readonly IServerSponsorsManager _sponsorsManager = default!;
+    [Dependency] private readonly ISharedSponsorsManager _sponsorsManager = default!;
 
     public override void Initialize()
     {
@@ -25,7 +27,7 @@ public sealed class LoadoutSystem : EntitySystem
 
     private void OnPlayerSpawned(PlayerSpawnCompleteEvent ev)
     {
-        if (!_sponsorsManager.TryGetPrototypes(ev.Player.UserId, out var prototypes))
+        if (!_sponsorsManager.TryGetServerPrototypes(ev.Player.UserId, out var prototypes))
             return;
 
         foreach (var loadoutId in prototypes)

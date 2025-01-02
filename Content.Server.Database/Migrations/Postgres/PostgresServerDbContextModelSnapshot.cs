@@ -512,6 +512,64 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.ToTable("assigned_user_id", (string)null);
                 });
 
+            modelBuilder.Entity("Content.Server.Database.BanTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("ban_template_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoDelete")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_delete");
+
+                    b.Property<int>("ExemptFlags")
+                        .HasColumnType("integer")
+                        .HasColumnName("exempt_flags");
+
+                    b.Property<bool>("Hidden")
+                        .HasColumnType("boolean")
+                        .HasColumnName("hidden");
+
+                    b.Property<TimeSpan>("Length")
+                        .HasColumnType("interval")
+                        .HasColumnName("length");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ban_template");
+
+                    b.ToTable("ban_template", (string)null);
+                });
+
+            modelBuilder.Entity("Content.Server.Database.Blacklist", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("UserId")
+                        .HasName("PK_blacklist");
+
+                    b.ToTable("blacklist", (string)null);
+                });
+
             modelBuilder.Entity("Content.Server.Database.ConnectionLog", b =>
                 {
                     b.Property<int>("Id")
@@ -530,10 +588,6 @@ namespace Content.Server.Database.Migrations.Postgres
                         .HasColumnType("smallint")
                         .HasColumnName("denied");
 
-                    b.Property<byte[]>("HWId")
-                        .HasColumnType("bytea")
-                        .HasColumnName("hwid");
-
                     b.Property<int>("ServerId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -543,6 +597,10 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.Property<DateTime>("Time")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("time");
+
+                    b.Property<float>("Trust")
+                        .HasColumnType("real")
+                        .HasColumnName("trust");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
@@ -558,6 +616,8 @@ namespace Content.Server.Database.Migrations.Postgres
 
                     b.HasIndex("ServerId")
                         .HasDatabaseName("IX_connection_log_server_id");
+
+                    b.HasIndex("Time");
 
                     b.HasIndex("UserId");
 
@@ -656,10 +716,6 @@ namespace Content.Server.Database.Migrations.Postgres
                         .IsRequired()
                         .HasColumnType("inet")
                         .HasColumnName("last_seen_address");
-
-                    b.Property<byte[]>("LastSeenHWId")
-                        .HasColumnType("bytea")
-                        .HasColumnName("last_seen_hwid");
 
                     b.Property<DateTime>("LastSeenTime")
                         .HasColumnType("timestamp with time zone")
@@ -907,6 +963,22 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.ToTable("profile_role_loadout", (string)null);
                 });
 
+            modelBuilder.Entity("Content.Server.Database.RoleWhitelist", b =>
+                {
+                    b.Property<Guid>("PlayerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("player_user_id");
+
+                    b.Property<string>("RoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("PlayerUserId", "RoleId")
+                        .HasName("PK_role_whitelists");
+
+                    b.ToTable("role_whitelists", (string)null);
+                });
+
             modelBuilder.Entity("Content.Server.Database.Round", b =>
                 {
                     b.Property<int>("Id")
@@ -987,10 +1059,6 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.Property<DateTime?>("ExpirationTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expiration_time");
-
-                    b.Property<byte[]>("HWId")
-                        .HasColumnType("bytea")
-                        .HasColumnName("hwid");
 
                     b.Property<bool>("Hidden")
                         .HasColumnType("boolean")
@@ -1121,10 +1189,6 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.Property<DateTime?>("ExpirationTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expiration_time");
-
-                    b.Property<byte[]>("HWId")
-                        .HasColumnType("bytea")
-                        .HasColumnName("hwid");
 
                     b.Property<bool>("Hidden")
                         .HasColumnType("boolean")
@@ -1567,6 +1631,34 @@ namespace Content.Server.Database.Migrations.Postgres
                         .IsRequired()
                         .HasConstraintName("FK_connection_log_server_server_id");
 
+                    b.OwnsOne("Content.Server.Database.TypedHwid", "HWId", b1 =>
+                        {
+                            b1.Property<int>("ConnectionLogId")
+                                .HasColumnType("integer")
+                                .HasColumnName("connection_log_id");
+
+                            b1.Property<byte[]>("Hwid")
+                                .IsRequired()
+                                .HasColumnType("bytea")
+                                .HasColumnName("hwid");
+
+                            b1.Property<int>("Type")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasDefaultValue(0)
+                                .HasColumnName("hwid_type");
+
+                            b1.HasKey("ConnectionLogId");
+
+                            b1.ToTable("connection_log");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ConnectionLogId")
+                                .HasConstraintName("FK_connection_log_connection_log_connection_log_id");
+                        });
+
+                    b.Navigation("HWId");
+
                     b.Navigation("Server");
                 });
 
@@ -1580,6 +1672,37 @@ namespace Content.Server.Database.Migrations.Postgres
                         .HasConstraintName("FK_job_profile_profile_id");
 
                     b.Navigation("Profile");
+                });
+
+            modelBuilder.Entity("Content.Server.Database.Player", b =>
+                {
+                    b.OwnsOne("Content.Server.Database.TypedHwid", "LastSeenHWId", b1 =>
+                        {
+                            b1.Property<int>("PlayerId")
+                                .HasColumnType("integer")
+                                .HasColumnName("player_id");
+
+                            b1.Property<byte[]>("Hwid")
+                                .IsRequired()
+                                .HasColumnType("bytea")
+                                .HasColumnName("last_seen_hwid");
+
+                            b1.Property<int>("Type")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasDefaultValue(0)
+                                .HasColumnName("last_seen_hwid_type");
+
+                            b1.HasKey("PlayerId");
+
+                            b1.ToTable("player");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PlayerId")
+                                .HasConstraintName("FK_player_player_player_id");
+                        });
+
+                    b.Navigation("LastSeenHWId");
                 });
 
             modelBuilder.Entity("Content.Server.Database.Profile", b =>
@@ -1630,6 +1753,19 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.Navigation("Profile");
                 });
 
+            modelBuilder.Entity("Content.Server.Database.RoleWhitelist", b =>
+                {
+                    b.HasOne("Content.Server.Database.Player", "Player")
+                        .WithMany("JobWhitelists")
+                        .HasForeignKey("PlayerUserId")
+                        .HasPrincipalKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_role_whitelists_player_player_user_id");
+
+                    b.Navigation("Player");
+                });
+
             modelBuilder.Entity("Content.Server.Database.Round", b =>
                 {
                     b.HasOne("Content.Server.Database.Server", "Server")
@@ -1663,7 +1799,35 @@ namespace Content.Server.Database.Migrations.Postgres
                         .HasForeignKey("RoundId")
                         .HasConstraintName("FK_server_ban_round_round_id");
 
+                    b.OwnsOne("Content.Server.Database.TypedHwid", "HWId", b1 =>
+                        {
+                            b1.Property<int>("ServerBanId")
+                                .HasColumnType("integer")
+                                .HasColumnName("server_ban_id");
+
+                            b1.Property<byte[]>("Hwid")
+                                .IsRequired()
+                                .HasColumnType("bytea")
+                                .HasColumnName("hwid");
+
+                            b1.Property<int>("Type")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasDefaultValue(0)
+                                .HasColumnName("hwid_type");
+
+                            b1.HasKey("ServerBanId");
+
+                            b1.ToTable("server_ban");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ServerBanId")
+                                .HasConstraintName("FK_server_ban_server_ban_server_ban_id");
+                        });
+
                     b.Navigation("CreatedBy");
+
+                    b.Navigation("HWId");
 
                     b.Navigation("LastEditedBy");
 
@@ -1712,7 +1876,35 @@ namespace Content.Server.Database.Migrations.Postgres
                         .HasForeignKey("RoundId")
                         .HasConstraintName("FK_server_role_ban_round_round_id");
 
+                    b.OwnsOne("Content.Server.Database.TypedHwid", "HWId", b1 =>
+                        {
+                            b1.Property<int>("ServerRoleBanId")
+                                .HasColumnType("integer")
+                                .HasColumnName("server_role_ban_id");
+
+                            b1.Property<byte[]>("Hwid")
+                                .IsRequired()
+                                .HasColumnType("bytea")
+                                .HasColumnName("hwid");
+
+                            b1.Property<int>("Type")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer")
+                                .HasDefaultValue(0)
+                                .HasColumnName("hwid_type");
+
+                            b1.HasKey("ServerRoleBanId");
+
+                            b1.ToTable("server_role_ban");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ServerRoleBanId")
+                                .HasConstraintName("FK_server_role_ban_server_role_ban_server_role_ban_id");
+                        });
+
                     b.Navigation("CreatedBy");
+
+                    b.Navigation("HWId");
 
                     b.Navigation("LastEditedBy");
 
@@ -1829,6 +2021,8 @@ namespace Content.Server.Database.Migrations.Postgres
                     b.Navigation("AdminWatchlistsLastEdited");
 
                     b.Navigation("AdminWatchlistsReceived");
+
+                    b.Navigation("JobWhitelists");
                 });
 
             modelBuilder.Entity("Content.Server.Database.Preference", b =>

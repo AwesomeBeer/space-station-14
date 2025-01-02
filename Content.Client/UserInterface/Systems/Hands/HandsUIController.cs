@@ -22,6 +22,7 @@ public sealed class HandsUIController : UIController, IOnStateEntered<GameplaySt
     [Dependency] private readonly IPlayerManager _player = default!;
 
     [UISystemDependency] private readonly HandsSystem _handsSystem = default!;
+    [UISystemDependency] private readonly UseDelaySystem _useDelay = default!;
 
     private readonly List<HandsContainer> _handsContainers = new();
     private readonly Dictionary<string, int> _handContainerIndices = new();
@@ -82,22 +83,27 @@ public sealed class HandsUIController : UIController, IOnStateEntered<GameplaySt
         if (args.Function == EngineKeyFunctions.UIClick)
         {
             _handsSystem.UIHandClick(_playerHandsComponent, hand.SlotName);
+            args.Handle();
         }
         else if (args.Function == EngineKeyFunctions.UseSecondary)
         {
             _handsSystem.UIHandOpenContextMenu(hand.SlotName);
+            args.Handle();
         }
         else if (args.Function == ContentKeyFunctions.ActivateItemInWorld)
         {
             _handsSystem.UIHandActivate(hand.SlotName);
+            args.Handle();
         }
         else if (args.Function == ContentKeyFunctions.AltActivateItemInWorld)
         {
             _handsSystem.UIHandAltActivateItem(hand.SlotName);
+            args.Handle();
         }
         else if (args.Function == ContentKeyFunctions.ExamineEntity)
         {
             _handsSystem.UIInventoryExamine(hand.SlotName);
+            args.Handle();
         }
     }
 
@@ -450,15 +456,15 @@ public sealed class HandsUIController : UIController, IOnStateEntered<GameplaySt
             foreach (var hand in container.GetButtons())
             {
 
-                if (!_entities.TryGetComponent(hand.Entity, out UseDelayComponent? useDelay) ||
-                    useDelay is not { DelayStartTime: var start, DelayEndTime: var end })
+                if (!_entities.TryGetComponent(hand.Entity, out UseDelayComponent? useDelay))
                 {
                     hand.CooldownDisplay.Visible = false;
                     continue;
                 }
+                var delay = _useDelay.GetLastEndingDelay((hand.Entity.Value, useDelay));
 
                 hand.CooldownDisplay.Visible = true;
-                hand.CooldownDisplay.FromTime(start, end);
+                hand.CooldownDisplay.FromTime(delay.StartTime, delay.EndTime);
             }
         }
     }

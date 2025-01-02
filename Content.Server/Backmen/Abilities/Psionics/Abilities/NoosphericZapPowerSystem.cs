@@ -6,13 +6,14 @@ using Content.Server.Beam;
 using Content.Server.Popups;
 using Content.Shared.Backmen.Abilities.Psionics;
 using Content.Shared.Backmen.Psionics;
+using Content.Shared.Backmen.Psionics.Components;
 using Content.Shared.Backmen.Psionics.Events;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 
 namespace Content.Server.Backmen.Abilities.Psionics;
 
-public sealed class NoosphericZapPowerSystem : EntitySystem
+public sealed class NoosphericZapPowerSystem : SharedNoosphericZapPowerSystem
 {
     [Dependency] private readonly PopupSystem _popupSystem = default!;
     [Dependency] private readonly SharedActionsSystem _actions = default!;
@@ -51,15 +52,7 @@ public sealed class NoosphericZapPowerSystem : EntitySystem
 
     private void OnPowerUsed(NoosphericZapPowerActionEvent args)
     {
-        if (HasComp<PsionicallyInvisibleComponent>(args.Performer))
-        {
-            _popupSystem.PopupCursor(Loc.GetString("cant-use-in-invisible"),args.Performer);
-            return;
-        }
-        if (!HasComp<PotentialPsionicComponent>(args.Target))
-            return;
-
-        if (HasComp<PsionicInsulationComponent>(args.Target))
+        if(args.Handled)
             return;
 
         _beam.TryCreateBeam(args.Performer, args.Target, "LightningNoospheric");
@@ -69,6 +62,12 @@ public sealed class NoosphericZapPowerSystem : EntitySystem
 
         _psionics.LogPowerUsed(args.Performer, "noospheric zap");
         args.Handled = true;
+
+        if (TryComp<PyrokinesisPowerComponent>(args.Performer, out var powerComponent)
+            && _actions.TryGetActionData(powerComponent.PyrokinesisPowerAction, out var action))
+        {
+            _actions.SetCooldown(powerComponent.PyrokinesisPowerAction, action.UseDelay ?? TimeSpan.FromMinutes(1));
+        }
     }
 }
 

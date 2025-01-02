@@ -12,17 +12,18 @@
         eyes: OrganHumanEyes
     torso:
       part: TorsoVulpkanin
+      connections:
+      - right arm
+      - left arm
+      - right leg
+      - left leg
+      - head
       organs:
         heart: OrganAnimalHeart
         lungs: OrganHumanLungs
         stomach: OrganVulpkaninStomach
         liver: OrganAnimalLiver
         kidneys: OrganHumanKidneys
-      connections:
-      - left arm
-      - right arm
-      - left leg
-      - right leg
     right arm:
       part: RightArmVulpkanin
       connections:

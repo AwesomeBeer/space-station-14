@@ -2,7 +2,7 @@ name: YAML Linter
 
 on:
   push:
-    branches: [ master, staging, trying ]
+    branches: [ master, staging, stable ]
   merge_group:
   pull_request:
     types: [ opened, reopened, synchronize, ready_for_review ]
@@ -29,6 +29,9 @@ jobs:
           dotnet-version: 8.0.x
       - name: Install dependencies
         run: dotnet restore
+#      - name: skip locale check
+#        run: |
+#          sed -i 's/_logSawmill.Error(sbErr.ToString());/_logSawmill.Warning(sbErr.ToString());/g' RobustToolbox/Robust.Shared/Localization/LocalizationManager.cs
       - name: Build
         run: dotnet build --configuration Release --no-restore /p:WarningsAsErrors= /m
       - name: Run Linter

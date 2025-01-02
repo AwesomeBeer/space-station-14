@@ -2,6 +2,7 @@ using Content.Server.Backmen.Psionics;
 using Content.Shared.Actions;
 using Content.Shared.Backmen.Abilities.Psionics;
 using Content.Shared.Backmen.Psionics;
+using Content.Shared.Backmen.Psionics.Components;
 using Content.Shared.Backmen.Psionics.Events;
 using Content.Shared.Backmen.Species.Shadowkin.Components;
 using Content.Shared.Eye;
@@ -93,6 +94,9 @@ public sealed class MetapsionicPowerSystem : EntitySystem
 
     private void OnPowerUsed(EntityUid uid, MetapsionicPowerComponent component, MetapsionicPowerActionEvent args)
     {
+        if(args.Handled)
+            return;
+
         _statusEffects.TryAddStatusEffect<MetapsionicVisibleComponent>(uid, "SeeAll", TimeSpan.FromSeconds(2), true);
         var coord = Transform(uid).Coordinates;
         foreach (var entity in _lookup.GetEntitiesInRange<PsionicComponent>(coord, component.Range))

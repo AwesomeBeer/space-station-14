@@ -1,5 +1,6 @@
 ent-DrinkCartonBaseFull = { ent-DrinkBase }
     .desc = { ent-DrinkBase.desc }
+    .suffix = Полный
 ent-DrinkCartonBaseLargeFull = { ent-DrinkCartonBaseFull }
     .desc = { ent-DrinkCartonBaseFull.desc }
 ent-DrinkCartonVisualsOpenable = { "" }
@@ -20,3 +21,5 @@ ent-DrinkSoyMilkCarton = соевое молоко
     .desc = Белое и питательное соевое удовольствие!
 ent-DrinkOatMilkCarton = овсяное молоко
     .desc = Бежевое и питательное удовольствие!
+ent-DrinkJuiceLemonCarton = лимонный сок
+    .desc = На первый глоток он кислит, а затем всё равно кислит.

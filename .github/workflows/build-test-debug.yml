@@ -2,11 +2,11 @@ name: Build & Test Debug
 
 on:
   push:
-    branches: [ master, staging, trying ]
+    branches: [ master, staging, stable ]
   merge_group:
   pull_request:
     types: [ opened, reopened, synchronize, ready_for_review ]
-    branches: [ master ]
+    branches: [ master, staging, stable ]
 
 jobs:
   build:
@@ -40,6 +40,10 @@ jobs:
 
     - name: Install dependencies
       run: dotnet restore
+
+#    - name: skip locale check
+#      run: |
+#        sed -i 's/_logSawmill.Error(sbErr.ToString());/_logSawmill.Warning(sbErr.ToString());/g' RobustToolbox/Robust.Shared/Localization/LocalizationManager.cs
 
     - name: Build Project
       run: dotnet build --configuration DebugOpt --no-restore /p:WarningsAsErrors=nullable /m

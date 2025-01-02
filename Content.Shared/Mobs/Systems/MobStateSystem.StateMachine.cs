@@ -1,4 +1,5 @@
-﻿using Content.Shared.Database;
+﻿using Content.Shared.Backmen.Surgery.Body;
+using Content.Shared.Database;
 using Content.Shared.Mobs.Components;
 
 namespace Content.Shared.Mobs.Systems;
@@ -16,7 +17,8 @@ public partial class MobStateSystem
     /// <returns>If the entity can be set to that MobState</returns>
     public bool HasState(EntityUid entity, MobState mobState, MobStateComponent? component = null)
     {
-        return Resolve(entity, ref component, false) && component.AllowedStates.Contains(mobState);
+        return _mobStateQuery.Resolve(entity, ref component, false) &&
+               component.AllowedStates.Contains(mobState);
     }
 
     /// <summary>
@@ -27,7 +29,7 @@ public partial class MobStateSystem
     /// <param name="origin">Entity that caused the state update (if applicable)</param>
     public void UpdateMobState(EntityUid entity, MobStateComponent? component = null, EntityUid? origin = null)
     {
-        if (!Resolve(entity, ref component))
+        if (!_mobStateQuery.Resolve(entity, ref component))
             return;
 
         var ev = new UpdateMobStateEvent {Target = entity, Component = component, Origin = origin};
@@ -46,7 +48,7 @@ public partial class MobStateSystem
     public void ChangeMobState(EntityUid entity, MobState mobState, MobStateComponent? component = null,
         EntityUid? origin = null)
     {
-        if (!Resolve(entity, ref component))
+        if (!_mobStateQuery.Resolve(entity, ref component))
             return;
 
         ChangeState(entity, component, mobState, origin: origin);
@@ -100,6 +102,9 @@ public partial class MobStateSystem
         var oldState = component.CurrentState;
         //make sure we are allowed to enter the new state
         if (oldState == newState || !component.AllowedStates.Contains(newState))
+            return;
+
+        if (oldState == MobState.Dead && HasComp<DebrainedComponent>(target))
             return;
 
         OnExitState(target, component, oldState);
